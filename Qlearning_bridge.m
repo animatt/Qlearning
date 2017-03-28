@@ -19,32 +19,59 @@ imagesc(GR), colormap(gray), axis equal
 
 % initialize agent (row, col[, action])
 Q = zeros(m, n, 4);
-target_policy = ones(m, n);
+Qsave = Q;
+target_policy = zeros(m, n);
+
 Action_Set = [1 0; 0 -1; -1 0; 0 1]';
 alpha = 0.1;
 gamma = 0.95;
 
+tolerance = 1 / 100;
+count = 0;
 learner_converging = true;
 while learner_converging
-    S = datasample(start, 1);
+    [row, col] = ind2sub(size(GR), datasample(start, 1));
     A = randi(4);
     step = Action_Set * (1 : 4 == A)';
     
-    reward = 0;
-    
-    % get subscripts
-    [row, col] = ind2sub([m n], S);
     SA = sub2ind(size(Q), row, col, A);
     
     [~, S2] = bound(GR, [row; col], step + [row; col]);
     
+    reward = 0;
+    
     % do initial backup
-    Q(SA) = Q(SA) + alpha * (reward + max(Q(S2(1), S2(2), :)));
+    Q(SA) = Q(SA) + alpha * (reward + gamma * max(Q(S2(1), S2(2), :)) - Q(SA));
     
     episode_in_progress = true;
     while episode_in_progress
+        row = S2(1);
+        col = S2(2);
+        
         A = randi(4);
-        rstep = -round(sin((A - 1) * pi / 2));
-        cstep = round(cos((A - 1) * pi / 2));
+        step = Action_Set * (1 : 4 == A)';
+        
+        SA = sub2ind(size(Q), row, col, A);
+        
+        % get S' and R
+        [episode_in_progress, S2] = bound(GR, [row; col], [row; col] + step);
+        reward = ~episode_in_progress;
+        
+        % backup
+        Q(SA) = Q(SA) + alpha * (reward + gamma * max(Q(S2(1), S2(2), :)) ...
+            - Q(SA));
+        
+        % improve target policy
+        [~, target_policy(row, col)] = max(Q(row, col, :));
+    end
+
+    count = count + 1;
+    if mod(count, 1000) == 0
+        ee = max(max(max(Q - Qsave)));
+        if ee <= tolerance
+            fprintf('count %d\n', count)
+            learner_converging = false;
+        end
+        Qsave = Q;
     end
 end
