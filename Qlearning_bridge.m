@@ -26,7 +26,7 @@ Action_Set = [1 0; 0 -1; -1 0; 0 1]';
 alpha = 0.1;
 gamma = 0.95;
 
-tolerance = 1 / 100;
+tolerance = 1 / 1000;
 count = 0;
 learner_converging = true;
 while learner_converging
